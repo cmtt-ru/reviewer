@@ -1,0 +1,27 @@
+{
+    "name": "tjournal/reviewer",
+    "description": "Reviewer — PHP library for track App Store reviews with Slack",
+    "keywords": ["appstore", "reviews", "slack", "app"],
+    "homepage": "http://github.com/tjournal/reviewer",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ilya Chekalskiy",
+            "email": "ilya@chekalskiy.ru",
+            "homepage": "https://chekalskiy.ru/"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0",
+        "guzzlehttp/guzzle": "@stable",
+        "maknz/slack": "~1.5",
+        "psr/log": "~1.0"
+    },
+    "suggest": {
+        "predis/predis": "Client library for Redis — we need it for storing already sent reviews"
+    },
+    "autoload": {
+        "psr-4": {"TJ\\": "src/"}
+    }
+}
