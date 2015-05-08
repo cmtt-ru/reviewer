@@ -20,5 +20,5 @@ To track reviews just [create new Incoming webhook](https://slack.com/services/n
 ```php
 $reviewer = new TJ\Reviewer(683103523);
 $reviewer->setSlackSettings(['endpoint' => 'https://hooks.slack.com/services/ABCDE/QWERTY', 'channel' => '#reviews']);
-$reviewer->work();
+$reviewer->start();
 ```
