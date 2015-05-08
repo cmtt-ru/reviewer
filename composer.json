@@ -21,9 +21,11 @@
     },
     "scripts": {
         "post-install-cmd": [
+            "php -r 'echo \"Done Installing!\n\";'",
             "chmod 777 storage"
         ],
         "post-update-cmd": [
+            "php -r 'echo \"Done Updating!\n\";'",
             "chmod 777 storage"
         ]
     },
