@@ -8,16 +8,68 @@ use GuzzleHttp\Client as Guzzle;
 use Maknz\Slack\Client as Slack;
 use Psr\Log\LoggerInterface;
 
+/**
+ * Send fresh reviews from the App Store to your Slack channel
+ */
 class Reviewer
 {
+    /**
+     * List of countries to check
+     *
+     * @var array
+     */
     public $countries = [ 'ru' => 'Russia', 'us' => 'US', 'ua' => 'Ukraine', 'by' => 'Belarus' ];
+
+    /**
+     * Application id
+     *
+     * @var integer
+     */
     protected $appId;
-    protected $client;
-    protected $logger;
+
+    /**
+     * Exception cathced during the initialization
+     *
+     * @var Exception
+     */
     protected $initException;
+
+    /**
+     * List of Slack settings
+     *
+     * - string  $endpoint  required  Slack hook endpoint
+     * - string  $channel   optional  Slack channel
+     *
+     * @var array
+     */
     protected $slackSettings;
+
+    /**
+     * Guzzle instance
+     *
+     * @var Guzzle
+     */
+    protected $client;
+
+    /**
+     * Logger instance
+     *
+     * @var LoggerInterface
+     */
+    protected $logger;
+
+    /**
+     * Flintstone instance
+     *
+     * @var Flintstone
+     */
     protected $storage;
 
+    /**
+     * Create Guzzle and Flintstone objects
+     *
+     * @param integer $appId application App Store id
+     */
     public function __construct($appId)
     {
         $this->appId = intval($appId);
@@ -30,6 +82,12 @@ class Reviewer
         }
     }
 
+    /**
+     * Slack options setter
+     *
+     * @param  array $slackSettings e.g. [ 'endpoint' => 'https://hook.slack.com/...', 'channel' => '#reviews' ]
+     * @return TJ\Reviewer
+     */
     public function setSlackSettings($slackSettings)
     {
         $this->slackSettings = $slackSettings;
@@ -37,7 +95,13 @@ class Reviewer
         return $this;
     }
 
-    public function setLogger($logger)
+    /**
+     * PSR-3 compatible logger setter
+     *
+     * @param LoggerInterface $logger
+     * @return TJ\Reviewer
+     */
+    public function setLogger(LoggerInterface $logger)
     {
         $this->logger = $logger;
 
@@ -49,6 +113,11 @@ class Reviewer
         return $this;
     }
 
+    /**
+     * Get new reviews of the app
+     *
+     * @return array list of reviews
+     */
     public function getReviews()
     {
         $appId = $this->appId;
@@ -107,6 +176,13 @@ class Reviewer
         return $reviews;
     }
 
+    /**
+     * Send reviews to Slack
+     *
+     * @param  array $reviews list of reviews to send
+     *
+     * @return boolean successful sending
+     */
     public function sendReviews($reviews)
     {
         if (!is_array($reviews) || !count($reviews)) {
@@ -159,8 +235,15 @@ class Reviewer
                 }
             }
         }
+
+        return true;
     }
 
+    /**
+     * Putting all the work together
+     *
+     * @return void
+     */
     public function start()
     {
         $reviews = $this->getReviews();
