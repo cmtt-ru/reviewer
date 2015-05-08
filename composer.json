@@ -16,10 +16,13 @@
         "php": ">=5.4.0",
         "guzzlehttp/guzzle": "@stable",
         "maknz/slack": "~1.5",
+        "fire015/flintstone": "~1.9",
         "psr/log": "~1.0"
     },
-    "suggest": {
-        "predis/predis": "Client library for Redis — we need it for storing already sent reviews"
+    "scripts": {
+        "post-package-install": [
+            "chmod -R 666 storage"
+        ]
     },
     "autoload": {
         "psr-4": {"TJ\\": "src/"}

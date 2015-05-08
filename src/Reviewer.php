@@ -2,6 +2,7 @@
 namespace TJ;
 
 use Exception;
+use Flintstone\Flintstone;
 use GuzzleHttp\Client as Guzzle;
 use Maknz\Slack\Client as Slack;
 use Psr\Log\LoggerInterface;
@@ -19,13 +20,7 @@ class Reviewer
     {
         $this->appId = intval($appId);
         $this->client = new Guzzle(['defaults' => ['timeout' => 20, 'connect_timeout' => 10]]);
-    }
-
-    public function setStorage($storage)
-    {
-        $this->storage = $storage;
-
-        return $this;
+        $this->storage = Flintstone::load('reviews', ['dir' => __DIR__ . '/../storage']);
     }
 
     public function setSlackSettings($slackSettings)
@@ -71,7 +66,7 @@ class Reviewer
                     }
 
                     $reviewId = intval($reviewEntry['id']['label']);
-                    if ($this->storage->sismember("appstoreReviews:{$appId}:sent", $reviewId)) {
+                    if ($this->storage->get("r{$reviewId}")) {
                         continue;
                     }
 
@@ -145,7 +140,7 @@ class Reviewer
 
                 $slack->send();
 
-                $this->storage->sadd("appstoreReviews:{$appId}:sent", $review['id']);
+                $this->storage->set("r{$review['id']}", true);
             } catch (Exception $e) {
                 if ($this->logger) {
                     $this->logger->error('Reviewer: exception while sending reviews', [ 'exception' => $e ]);
