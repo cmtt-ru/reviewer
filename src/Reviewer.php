@@ -76,7 +76,7 @@ class Reviewer
         $this->client = new Guzzle(['defaults' => ['timeout' => 20, 'connect_timeout' => 10]]);
 
         try {
-            $this->storage = Flintstone::load('reviews', ['dir' => __DIR__ . '/../storage']);
+            $this->storage = Flintstone::load('reviews', ['dir' => realpath(__DIR__ . '/../storage')]);
         } catch (FlintstoneException $e) {
             $this->initException = $e;
         }

@@ -20,8 +20,11 @@
         "psr/log": "~1.0"
     },
     "scripts": {
-        "post-package-install": [
-            "chmod -R 666 storage"
+        "post-install-cmd": [
+            "chmod 777 storage"
+        ],
+        "post-update-cmd": [
+            "chmod 777 storage"
         ]
     },
     "autoload": {
