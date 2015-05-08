@@ -19,15 +19,8 @@
         "fire015/flintstone": "~1.9",
         "psr/log": "~1.0"
     },
-    "scripts": {
-        "post-install-cmd": [
-            "php -r 'echo \"Done Installing!\n\";'",
-            "chmod 777 storage"
-        ],
-        "post-update-cmd": [
-            "php -r 'echo \"Done Updating!\n\";'",
-            "chmod 777 storage"
-        ]
+    "suggest": {
+        "monolog/monolog": "Monolog sends your logs to files, sockets, inboxes, databases and various web services"
     },
     "autoload": {
         "psr-4": {"TJ\\": "src/"}

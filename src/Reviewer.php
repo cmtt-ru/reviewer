@@ -69,14 +69,21 @@ class Reviewer
      * Create Guzzle and Flintstone objects
      *
      * @param integer $appId application App Store id
+     * @throws Exception when DB directory is not writable
      */
     public function __construct($appId)
     {
         $this->appId = intval($appId);
         $this->client = new Guzzle(['defaults' => ['timeout' => 20, 'connect_timeout' => 10]]);
 
+        $databaseDir = realpath(__DIR__ . '/..') . '/storage';
+
+        if (!realpath($databaseDir) || !is_dir($databaseDir) || !is_writable($databaseDir)) {
+            throw new Exception("Please make '{$databaseDir}' dir writable");
+        }
+
         try {
-            $this->storage = Flintstone::load('reviews', ['dir' => realpath(__DIR__ . '/../storage')]);
+            $this->storage = Flintstone::load('reviews', ['dir' => $databaseDir]);
         } catch (FlintstoneException $e) {
             $this->initException = $e;
         }
