@@ -28,6 +28,13 @@ class Reviewer
     protected $appId;
 
     /**
+     * Is sending fired for a first time
+     *
+     * @var boolean
+     */
+    protected $firstTime = false;
+
+    /**
      * Exception cathced during the initialization
      *
      * @var Exception
@@ -80,6 +87,10 @@ class Reviewer
 
         if (!realpath($databaseDir) || !is_dir($databaseDir) || !is_writable($databaseDir)) {
             throw new Exception("Please make '{$databaseDir}' dir writable");
+        }
+
+        if (!file_exists($databaseDir . '/reviews.dat')) {
+            $this->firstTime = true;
         }
 
         try {
@@ -233,7 +244,9 @@ class Reviewer
                     ]
                 ]);
 
-                $slack->send();
+                if ($this->firstTime === true) {
+                    $slack->send();
+                }
 
                 $this->storage->set("r{$review['id']}", 1);
             } catch (Exception $e) {
