@@ -19,7 +19,7 @@ class Reviewer
      *
      * @var array
      */
-    public $countries = [ 'ru' => 'Russia', 'us' => 'US', 'ua' => 'Ukraine', 'by' => 'Belarus' ];
+    public $countries = ['ru' => 'Russia', 'us' => 'US', 'ua' => 'Ukraine', 'by' => 'Belarus'];
 
     /**
      * Application id
@@ -83,13 +83,14 @@ class Reviewer
     /**
      * Create Guzzle and Flintstone objects
      *
-     * @param integer $appId application App Store id
+     * @param  integer   $appId    application App Store id
+     * @param  integer   $maxPages max pages count to check
      * @throws Exception when DB directory is not writable
      */
     public function __construct($appId, $maxPages = 3)
     {
         $this->appId = intval($appId);
-        $this->maxPages = intval ($maxPages);
+        $this->maxPages = max(1, intval($maxPages));
         $this->client = new Guzzle(['defaults' => ['timeout' => 20, 'connect_timeout' => 10]]);
 
         $databaseDir = realpath(__DIR__ . '/..') . '/storage';
@@ -112,7 +113,7 @@ class Reviewer
     /**
      * Slack options setter
      *
-     * @param  array $slackSettings e.g. [ 'endpoint' => 'https://hook.slack.com/...', 'channel' => '#reviews' ]
+     * @param  array         $slackSettings e.g. [ 'endpoint' => 'https://hook.slack.com/...', 'channel' => '#reviews' ]
      * @return TJ\Reviewer
      */
     public function setSlackSettings($slackSettings)
@@ -125,7 +126,7 @@ class Reviewer
     /**
      * PSR-3 compatible logger setter
      *
-     * @param LoggerInterface $logger
+     * @param  LoggerInterface $logger
      * @return TJ\Reviewer
      */
     public function setLogger(LoggerInterface $logger)
@@ -133,7 +134,7 @@ class Reviewer
         $this->logger = $logger;
 
         if ($this->initException && $this->logger) {
-            $this->logger->error('Reviewer: exception while init', [ 'exception' => $this->initException ]);
+            $this->logger->error('Reviewer: exception while init', ['exception' => $this->initException]);
             $this->initException = null;
         }
 
@@ -141,17 +142,19 @@ class Reviewer
     }
 
     /**
-     * Send requests and get reviews
+     * Get reviews from country App Store
      *
-     * @return array list of reviews
+     * @param  integer $appId
+     * @param  string  $countryCode
+     * @param  string  $countryName
+     * @return array   list of reviews
      */
-    public function getReviewPages($countryCode, $countryName)
+    public function getReviewsByCountry($appId, $countryCode, $countryName)
     {
-        $appId = $this->appId;
         $reviews = [];
 
         $requests = [];
-        for ($i=1; $i<=$this->maxPages; $i++) {
+        for ($i = 1; $i <= $this->maxPages; $i++) {
             array_push($requests, $this->client->createRequest("GET", "https://itunes.apple.com/{$countryCode}/rss/customerreviews/page={$i}/id={$appId}/sortBy=mostRecent/json"));
         }
 
@@ -159,16 +162,17 @@ class Reviewer
             $responses = Pool::batch($this->client, $requests);
 
             foreach ($responses->getSuccessful() as $page => $response) {
+                $realPage = $page + 1;
                 $reviewsData = $response->json();
 
                 if (!isset($reviewsData['feed']) || !isset($reviewsData['feed']['entry']) || count($reviewsData['feed']['entry']) == 0) {
                     // Received empty page
                     if ($this->logger) {
-                        $this->logger->debug('Empty page received for page ' . ($page+1) . ' and country ' . $countryCode);
+                        $this->logger->debug('Empty page received for page ' . $realPage . ' and country ' . $countryCode);
                     }
                 } else {
                     if ($this->logger) {
-                        $this->logger->debug('Received ' . count($reviewsData['feed']['entry']) . ' entries for page ' . ($page+1) . ' country ' . $countryCode);
+                        $this->logger->debug('Received ' . count($reviewsData['feed']['entry']) . ' entries for page ' . $realPage . ' in country ' . $countryCode);
                     }
 
                     $applicationData = [];
@@ -177,14 +181,16 @@ class Reviewer
                             // First element is always an app metadata
                             $applicationData = [
                                 'name' => $reviewEntry['im:name']['label'],
-                                'image' => end($reviewEntry['im:image'])['label'],
+                                'image' => end($reviewEntry['im:image'])['label']
                             ];
                             continue;
                         }
+
                         $reviewId = intval($reviewEntry['id']['label']);
                         if ($this->storage->get("r{$reviewId}")) {
                             continue;
                         }
+
                         $review = [
                             'id' => $reviewId,
                             'author' => [
@@ -199,12 +205,12 @@ class Reviewer
                         ];
 
                         array_push($reviews, $review);
-                    }    
+                    }
                 }
             }
         } catch (Exception $e) {
             if ($this->logger) {
-                $this->logger->error('Reviewer: exception while getting reviews', [ 'exception' => $e ]);
+                $this->logger->error('Reviewer: exception while getting reviews', ['exception' => $e]);
             }
         }
 
@@ -219,24 +225,24 @@ class Reviewer
      */
     public function getReviews()
     {
-
+        $appId = $this->appId;
         $reviews = [];
+
         foreach ($this->countries as $countryCode => $countryName) {
+            $reviewsByCountry = $this->getReviewsByCountry($appId, $countryCode, $countryName);
 
-            $reviewPage = $this->getReviewPages($countryCode, $countryName);
-            if ($reviewPage) {
-                $reviews = array_merge((array)$reviews, (array)$reviewPage);
+            if (is_array($reviewsByCountry) && count($reviewsByCountry)) {
+                $reviews = array_merge($reviews, $reviewsByCountry);
             }
-
         }
+
         return $reviews;
     }
 
     /**
      * Send reviews to Slack
      *
-     * @param  array $reviews list of reviews to send
-     *
+     * @param  array   $reviews   list of reviews to send
      * @return boolean successful sending
      */
     public function sendReviews($reviews)
@@ -270,6 +276,7 @@ class Reviewer
 
             try {
                 $slack = new Slack($this->slackSettings['endpoint']);
+
                 if ($this->firstTime === false) {
                     $slack->attach([
                         'fallback' => "{$ratingText} {$review['author']['name']}: {$review['title']} — {$review['content']}",
@@ -287,7 +294,7 @@ class Reviewer
                 $this->storage->set("r{$review['id']}", 1);
             } catch (Exception $e) {
                 if ($this->logger) {
-                    $this->logger->error('Reviewer: exception while sending reviews', [ 'exception' => $e ]);
+                    $this->logger->error('Reviewer: exception while sending reviews', ['exception' => $e]);
                 }
             }
         }
