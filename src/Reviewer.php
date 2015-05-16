@@ -5,6 +5,7 @@ use Exception;
 use Flintstone\Flintstone;
 use Flintstone\FlintstoneException;
 use GuzzleHttp\Client as Guzzle;
+use GuzzleHttp\Pool as Pool;
 use Maknz\Slack\Client as Slack;
 use Psr\Log\LoggerInterface;
 
@@ -28,6 +29,13 @@ class Reviewer
     protected $appId;
 
     /**
+     * Max pages to request from itunes, default is 3
+     *
+     * @var integer
+     */
+    protected $maxPages;
+
+    /**
      * Is sending fired for a first time
      *
      * @var boolean
@@ -35,7 +43,7 @@ class Reviewer
     protected $firstTime = false;
 
     /**
-     * Exception cathced during the initialization
+     * Exception caught during the initialization
      *
      * @var Exception
      */
@@ -78,9 +86,10 @@ class Reviewer
      * @param integer $appId application App Store id
      * @throws Exception when DB directory is not writable
      */
-    public function __construct($appId)
+    public function __construct($appId, $maxPages = 3)
     {
         $this->appId = intval($appId);
+        $this->maxPages = intval ($maxPages);
         $this->client = new Guzzle(['defaults' => ['timeout' => 20, 'connect_timeout' => 10]]);
 
         $databaseDir = realpath(__DIR__ . '/..') . '/storage';
@@ -132,65 +141,94 @@ class Reviewer
     }
 
     /**
+     * Send requests and get reviews
+     *
+     * @return array list of reviews
+     */
+    public function getReviewPages($countryCode, $countryName)
+    {
+        $appId = $this->appId;
+        $reviews = [];
+
+        $requests = [];
+        for ($i=1; $i<=$this->maxPages; $i++) {
+            array_push($requests, $this->client->createRequest("GET", "https://itunes.apple.com/{$countryCode}/rss/customerreviews/page={$i}/id={$appId}/sortBy=mostRecent/json"));
+        }
+
+        try {
+            $responses = Pool::batch($this->client, $requests);
+
+            foreach ($responses->getSuccessful() as $page => $response) {
+                $reviewsData = $response->json();
+
+                if (!isset($reviewsData['feed']) || !isset($reviewsData['feed']['entry']) || count($reviewsData['feed']['entry']) == 0) {
+                    // Received empty page
+                    if ($this->logger) {
+                        $this->logger->debug('Empty page received for page ' . ($page+1) . ' and country ' . $countryCode);
+                    }
+                } else {
+                    if ($this->logger) {
+                        $this->logger->debug('Received ' . count($reviewsData['feed']['entry']) . ' entries for page ' . ($page+1) . ' country ' . $countryCode);
+                    }
+
+                    $applicationData = [];
+                    foreach ($reviewsData['feed']['entry'] as $reviewEntry) {
+                        if (isset($reviewEntry['im:name']) && isset($reviewEntry['im:image'])) {
+                            // First element is always an app metadata
+                            $applicationData = [
+                                'name' => $reviewEntry['im:name']['label'],
+                                'image' => end($reviewEntry['im:image'])['label'],
+                            ];
+                            continue;
+                        }
+                        $reviewId = intval($reviewEntry['id']['label']);
+                        if ($this->storage->get("r{$reviewId}")) {
+                            continue;
+                        }
+                        $review = [
+                            'id' => $reviewId,
+                            'author' => [
+                                'uri' => $reviewEntry['author']['uri']['label'],
+                                'name' => $reviewEntry['author']['name']['label']
+                            ],
+                            'title' => $reviewEntry['title']['label'],
+                            'content' => $reviewEntry['content']['label'],
+                            'rating' => intval($reviewEntry['im:rating']['label']),
+                            'country' => $countryName,
+                            'application' => array_merge($applicationData, ['version' => $reviewEntry['im:version']['label']])
+                        ];
+
+                        array_push($reviews, $review);
+                    }    
+                }
+            }
+        } catch (Exception $e) {
+            if ($this->logger) {
+                $this->logger->error('Reviewer: exception while getting reviews', [ 'exception' => $e ]);
+            }
+        }
+
+        return $reviews;
+
+    }
+
+    /**
      * Get new reviews of the app
      *
      * @return array list of reviews
      */
     public function getReviews()
     {
-        $appId = $this->appId;
 
         $reviews = [];
         foreach ($this->countries as $countryCode => $countryName) {
-            try {
-                $response = $this->client->get("https://itunes.apple.com/{$countryCode}/rss/customerreviews/id={$appId}/sortBy=mostRecent/json");
-                $reviewsData = $response->json();
 
-                // todo проверять несколько страниц
-
-                if (!isset($reviewsData['feed']) || !isset($reviewsData['feed']['entry']) || count($reviewsData['feed']['entry']) == 0) {
-                    continue;
-                }
-
-                $applicationData = [];
-                foreach ($reviewsData['feed']['entry'] as $reviewEntry) {
-                    if (isset($reviewEntry['im:name']) && isset($reviewEntry['im:image'])) {
-                        // First element is always an app metadata
-                        $applicationData = [
-                            'name' => $reviewEntry['im:name']['label'],
-                            'image' => end($reviewEntry['im:image'])['label'],
-                        ];
-
-                        continue;
-                    }
-
-                    $reviewId = intval($reviewEntry['id']['label']);
-                    if ($this->storage->get("r{$reviewId}")) {
-                        continue;
-                    }
-
-                    $review = [
-                        'id' => $reviewId,
-                        'author' => [
-                            'uri' => $reviewEntry['author']['uri']['label'],
-                            'name' => $reviewEntry['author']['name']['label']
-                        ],
-                        'title' => $reviewEntry['title']['label'],
-                        'content' => $reviewEntry['content']['label'],
-                        'rating' => intval($reviewEntry['im:rating']['label']),
-                        'country' => $countryName,
-                        'application' => array_merge($applicationData, ['version' => $reviewEntry['im:version']['label']])
-                    ];
-
-                    array_push($reviews, $review);
-                }
-            } catch (Exception $e) {
-                if ($this->logger) {
-                    $this->logger->error('Reviewer: exception while getting reviews', [ 'exception' => $e ]);
-                }
+            $reviewPage = $this->getReviewPages($countryCode, $countryName);
+            if ($reviewPage) {
+                $reviews = array_merge((array)$reviews, (array)$reviewPage);
             }
-        }
 
+        }
         return $reviews;
     }
 
@@ -232,20 +270,18 @@ class Reviewer
 
             try {
                 $slack = new Slack($this->slackSettings['endpoint']);
-                $slack->attach([
-                    'fallback' => "{$ratingText} {$review['author']['name']}: {$review['title']} — {$review['content']}",
-                    'color' => ($review['rating'] >= 4) ? 'good' : (($review['rating'] == 3) ? 'warning' : 'danger'),
-                    'pretext' => "{$ratingText} Review for {$review['application']['version']} from <{$review['author']['uri']}|{$review['author']['name']}>",
-                    'fields' => [
-                        [
-                            'title' => $review['title'],
-                            'value' => $review['content']
+                if ($this->firstTime === false) {
+                    $slack->attach([
+                        'fallback' => "{$ratingText} {$review['author']['name']}: {$review['title']} — {$review['content']}",
+                        'color' => ($review['rating'] >= 4) ? 'good' : (($review['rating'] == 3) ? 'warning' : 'danger'),
+                        'pretext' => "{$ratingText} Review for {$review['application']['version']} from <{$review['author']['uri']}|{$review['author']['name']} ({$review['country']})>",
+                        'fields' => [
+                            [
+                                'title' => $review['title'],
+                                'value' => $review['content']
+                            ]
                         ]
-                    ]
-                ]);
-
-                if ($this->firstTime === true) {
-                    $slack->send();
+                    ])->send();
                 }
 
                 $this->storage->set("r{$review['id']}", 1);
