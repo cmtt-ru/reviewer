@@ -275,13 +275,13 @@ class Reviewer
             }
 
             try {
-                $slack = new Slack($this->slackSettings['endpoint']);
+                $slack = new Slack($this->slackSettings['endpoint'], $config);
 
                 if ($this->firstTime === false) {
                     $slack->attach([
                         'fallback' => "{$ratingText} {$review['author']['name']}: {$review['title']} — {$review['content']}",
                         'color' => ($review['rating'] >= 4) ? 'good' : (($review['rating'] == 3) ? 'warning' : 'danger'),
-                        'pretext' => "{$ratingText} Review for {$review['application']['version']} from <{$review['author']['uri']}|{$review['author']['name']} ({$review['country']})>",
+                        'pretext' => "{$ratingText} Review for {$review['application']['version']} from <{$review['author']['uri']}|{$review['author']['name']}> ({$review['country']})",
                         'fields' => [
                             [
                                 'title' => $review['title'],
