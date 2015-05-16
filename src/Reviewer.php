@@ -168,11 +168,12 @@ class Reviewer
                 if (!isset($reviewsData['feed']) || !isset($reviewsData['feed']['entry']) || count($reviewsData['feed']['entry']) == 0) {
                     // Received empty page
                     if ($this->logger) {
-                        $this->logger->debug('Empty page received for page ' . $realPage . ' and country ' . $countryCode);
+                        $this->logger->debug("#{$appId}: Received 0 entries for page {$realPage} in {$countryName}");
                     }
                 } else {
                     if ($this->logger) {
-                        $this->logger->debug('Received ' . count($reviewsData['feed']['entry']) . ' entries for page ' . $realPage . ' in country ' . $countryCode);
+                        $countEntries = count($reviewsData['feed']['entry']) - 1;
+                        $this->logger->debug("#{$appId}: Received {$countEntries} entries for page {$realPage} in {$countryName}");
                     }
 
                     $applicationData = [];

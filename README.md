@@ -37,7 +37,7 @@ Then add your script to crontab:
 
 ```bash
 sudo crontab -e
-0 * * * *  php crontab.php
+*/15 * * * *  php crontab.php
 ```
 
 ### Monolog integration
@@ -51,4 +51,19 @@ $monolog = new Logger('Reviewer');
 $monolog->pushHandler(new StreamHandler('/tmp/reviewer.log', Logger::DEBUG));
 
 $reviewer->setLogger($monolog);
+```
+
+### Countries
+There is a way to change set of countries from whence Reviewer is getting fresh app's reviews.
+
+```php
+try {
+    $reviewer = new TJ\Reviewer({APPID});
+    ...
+    $reviewer->countries = ['ru' => 'Russia', 'us' => 'US', 'fi' => 'Finland', 'fr' => 'France'];
+
+    $reviewer->start();
+} catch (Exception $e) {
+    // handle errors
+}
 ```
