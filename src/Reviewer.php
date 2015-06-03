@@ -178,11 +178,12 @@ class Reviewer
 
                     $applicationData = [];
                     foreach ($reviewsData['feed']['entry'] as $reviewEntry) {
-                        if (isset($reviewEntry['im:name']) && isset($reviewEntry['im:image'])) {
+                        if (isset($reviewEntry['im:name']) && isset($reviewEntry['im:image']) && isset($reviewEntry['link'])) {
                             // First element is always an app metadata
                             $applicationData = [
                                 'name' => $reviewEntry['im:name']['label'],
-                                'image' => end($reviewEntry['im:image'])['label']
+                                'image' => end($reviewEntry['im:image'])['label'],
+                                'link' => $reviewEntry['link']['attributes']['href']
                             ];
                             continue;
                         }
@@ -260,27 +261,30 @@ class Reviewer
             return false;
         }
 
+        $config = [
+            'username' => 'Reviewer',
+            'icon_emoji' => ':rocket:'
+        ];
+
+        if (isset($this->slackSettings['channel'])) {
+            $config['channel'] = $this->slackSettings['channel'];
+        }
+
+        $slack = new Slack($this->slackSettings['endpoint'], $config);
+
         foreach ($reviews as $review) {
             $ratingText = '';
             for ($i = 1; $i <= 5; $i++) {
                 $ratingText .= ($i <= $review['rating']) ? "★" : "☆";
             }
 
-            $config = [
-                'username' => $review['application']['name'],
-                'icon' => $review['application']['image']
-            ];
-
-            if (isset($this->slackSettings['channel'])) {
-                $config['channel'] = $this->slackSettings['channel'];
-            }
-
             try {
-                $slack = new Slack($this->slackSettings['endpoint'], $config);
-
                 if ($this->firstTime === false) {
                     $slack->attach([
                         'fallback' => "{$ratingText} {$review['author']['name']}: {$review['title']} — {$review['content']}",
+                        'author_name' => $review['application']['name'],
+                        'author_icon' => $review['application']['image'],
+                        'author_link' => $review['application']['link'],
                         'color' => ($review['rating'] >= 4) ? 'good' : (($review['rating'] == 3) ? 'warning' : 'danger'),
                         'pretext' => "{$ratingText} Review for {$review['application']['version']} from <{$review['author']['uri']}|{$review['author']['name']}> ({$review['country']})",
                         'fields' => [
