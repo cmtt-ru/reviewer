@@ -281,16 +281,35 @@ class Reviewer
             try {
                 if ($this->firstTime === false) {
                     $slack->attach([
-                        'fallback' => "{$ratingText} {$review['author']['name']}: {$review['title']} — {$review['content']}",
+                        'fallback' => "{$ratingText} {$review['title']} — {$review['content']}",
                         'author_name' => $review['application']['name'],
                         'author_icon' => $review['application']['image'],
                         'author_link' => $review['application']['link'],
                         'color' => ($review['rating'] >= 4) ? 'good' : (($review['rating'] == 3) ? 'warning' : 'danger'),
-                        'pretext' => "{$ratingText} Review for {$review['application']['version']} from <{$review['author']['uri']}|{$review['author']['name']}> ({$review['country']})",
                         'fields' => [
                             [
                                 'title' => $review['title'],
                                 'value' => $review['content']
+                            ],
+                            [
+                                'title' => 'Rating',
+                                'value' => $ratingText,
+                                'short' => true
+                            ],
+                            [
+                                'title' => 'Author',
+                                'value' => "<{$review['author']['uri']}|{$review['author']['name']}>",
+                                'short' => true
+                            ],
+                            [
+                                'title' => 'Version',
+                                'value' => $review['application']['version'],
+                                'short' => true
+                            ],
+                            [
+                                'title' => 'Country',
+                                'value' => $review['country'],
+                                'short' => true
                             ]
                         ]
                     ])->send();
