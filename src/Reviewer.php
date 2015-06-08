@@ -262,8 +262,8 @@ class Reviewer
         }
 
         $config = [
-            'username' => 'Reviewer',
-            'icon_emoji' => ':rocket:'
+            'username' => 'TJ Reviewer',
+            'icon_url' => 'https://i.imgur.com/GX1ASZy.png'
         ];
 
         if (isset($this->slackSettings['channel'])) {
