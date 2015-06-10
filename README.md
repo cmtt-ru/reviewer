@@ -1,7 +1,8 @@
 # Reviewer
-Simple library to track App Store reviews with Slack.
+Simple library to track App Store reviews with [Slack](https://slack.com/).
 
->[Slack](https://slack.com/) is a platform for team communication
+[![License](https://poser.pugx.org/tjournal/reviewer/license)](https://packagist.org/packages/tjournal/reviewer)
+[![Latest Stable Version](https://poser.pugx.org/tjournal/reviewer/v/stable)](https://packagist.org/packages/tjournal/reviewer)
 
 ### Installing via Composer
 ```bash
