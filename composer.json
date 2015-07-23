@@ -14,7 +14,7 @@
     ],
     "require": {
         "php": ">=5.4.0",
-        "guzzlehttp/guzzle": "@stable",
+        "guzzlehttp/guzzle": "~6.0",
         "maknz/slack": "~1.7",
         "fire015/flintstone": "~1.9",
         "psr/log": "~1.0"

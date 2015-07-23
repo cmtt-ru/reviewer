@@ -5,7 +5,7 @@ use Exception;
 use Flintstone\Flintstone;
 use Flintstone\FlintstoneException;
 use GuzzleHttp\Client as Guzzle;
-use GuzzleHttp\Pool as Pool;
+use GuzzleHttp\Promise;
 use Maknz\Slack\Client as Slack;
 use Psr\Log\LoggerInterface;
 
@@ -153,27 +153,26 @@ class Reviewer
     {
         $reviews = [];
 
-        $requests = [];
+        $promises = [];
         for ($i = 1; $i <= $this->maxPages; $i++) {
-            array_push($requests, $this->client->createRequest("GET", "https://itunes.apple.com/{$countryCode}/rss/customerreviews/page={$i}/id={$appId}/sortBy=mostRecent/json"));
+            $promises['page' . $i] = $this->client->getAsync("https://itunes.apple.com/{$countryCode}/rss/customerreviews/page={$i}/id={$appId}/sortBy=mostRecent/json");
         }
 
         try {
-            $responses = Pool::batch($this->client, $requests);
+            $responses = Promise\unwrap($promises);
 
-            foreach ($responses->getSuccessful() as $page => $response) {
-                $realPage = $page + 1;
-                $reviewsData = $response->json();
+            for ($page = 1; $page <= $this->maxPages; $page++) {
+                $reviewsData = json_decode((string) $responses['page' . $page]->getBody(), true);
 
                 if (!isset($reviewsData['feed']) || !isset($reviewsData['feed']['entry']) || count($reviewsData['feed']['entry']) == 0) {
                     // Received empty page
                     if ($this->logger) {
-                        $this->logger->debug("#{$appId}: Received 0 entries for page {$realPage} in {$countryName}");
+                        $this->logger->debug("#{$appId}: Received 0 entries for page {$page} in {$countryName}");
                     }
                 } else {
                     if ($this->logger) {
                         $countEntries = count($reviewsData['feed']['entry']) - 1;
-                        $this->logger->debug("#{$appId}: Received {$countEntries} entries for page {$realPage} in {$countryName}");
+                        $this->logger->debug("#{$appId}: Received {$countEntries} entries for page {$page} in {$countryName}");
                     }
 
                     $applicationData = [];
