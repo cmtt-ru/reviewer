@@ -2,8 +2,6 @@
 namespace TJ;
 
 use Exception;
-use Flintstone\Flintstone;
-use Flintstone\FlintstoneException;
 use GuzzleHttp\Client as Guzzle;
 use GuzzleHttp\Promise;
 use Maknz\Slack\Client as Slack;
@@ -36,20 +34,6 @@ class Reviewer
     protected $maxPages;
 
     /**
-     * Is sending fired for a first time
-     *
-     * @var boolean
-     */
-    protected $firstTime = false;
-
-    /**
-     * Exception caught during the initialization
-     *
-     * @var Exception
-     */
-    protected $initException;
-
-    /**
      * List of Slack settings
      *
      * - string  $endpoint  required  Slack hook endpoint
@@ -74,14 +58,14 @@ class Reviewer
     protected $logger;
 
     /**
-     * Flintstone instance
+     * Storage instance
      *
-     * @var Flintstone
+     * @var Object
      */
     protected $storage;
 
     /**
-     * Create Guzzle and Flintstone objects
+     * Create Guzzle objects
      *
      * @param  integer   $appId    application App Store id
      * @param  integer   $maxPages max pages count to check
@@ -92,22 +76,19 @@ class Reviewer
         $this->appId = intval($appId);
         $this->maxPages = max(1, intval($maxPages));
         $this->client = new Guzzle(['defaults' => ['timeout' => 20, 'connect_timeout' => 10]]);
+    }
 
-        $databaseDir = realpath(__DIR__ . '/..') . '/storage';
+    /**
+     * Storage setter
+     *
+     * @param  object        $storage implements IStorage
+     * @return TJ\Reviewer
+     */
+    public function setStorage(IStorage $storage)
+    {
+        $this->storage = $storage;
 
-        if (!realpath($databaseDir) || !is_dir($databaseDir) || !is_writable($databaseDir)) {
-            throw new Exception("Please make '{$databaseDir}' dir writable");
-        }
-
-        if (!file_exists($databaseDir . '/reviews.dat')) {
-            $this->firstTime = true;
-        }
-
-        try {
-            $this->storage = Flintstone::load('reviews', ['dir' => $databaseDir]);
-        } catch (FlintstoneException $e) {
-            $this->initException = $e;
-        }
+        return $this;
     }
 
     /**
@@ -132,11 +113,6 @@ class Reviewer
     public function setLogger(LoggerInterface $logger)
     {
         $this->logger = $logger;
-
-        if ($this->initException && $this->logger) {
-            $this->logger->error('Reviewer: exception while init', ['exception' => $this->initException]);
-            $this->initException = null;
-        }
 
         return $this;
     }
@@ -188,7 +164,7 @@ class Reviewer
                         }
 
                         $reviewId = intval($reviewEntry['id']['label']);
-                        if ($this->storage->get("r{$reviewId}")) {
+                        if ($this->storage->sismember("tjournal:reviewer:reviews", $reviewId)) {
                             continue;
                         }
 
@@ -260,6 +236,8 @@ class Reviewer
             return false;
         }
 
+        $firstTime = !((boolean) $this->storage->exists('tjournal:reviewer:init'));
+
         $config = [
             'username' => 'TJ Reviewer',
             'icon' => 'https://i.imgur.com/GX1ASZy.png'
@@ -278,7 +256,7 @@ class Reviewer
             }
 
             try {
-                if ($this->firstTime === false) {
+                if (!$firstTime) {
                     $slack->attach([
                         'fallback' => "{$ratingText} {$review['title']} — {$review['content']}",
                         'author_name' => $review['application']['name'],
@@ -314,13 +292,15 @@ class Reviewer
                     ])->send();
                 }
 
-                $this->storage->set("r{$review['id']}", 1);
+                $this->storage->sadd("tjournal:reviewer:reviews", $review['id']);
             } catch (Exception $e) {
                 if ($this->logger) {
                     $this->logger->error('Reviewer: exception while sending reviews', ['exception' => $e]);
                 }
             }
         }
+
+        $this->storage->set('tjournal:reviewer:init', 1);
 
         return true;
     }
@@ -332,6 +312,10 @@ class Reviewer
      */
     public function start()
     {
+        if (!$this->storage) {
+            throw new Exception("Storage is not set");
+        }
+
         $reviews = $this->getReviews();
         $this->sendReviews($reviews);
 

@@ -16,11 +16,11 @@
         "php": ">=5.4.0",
         "guzzlehttp/guzzle": "~6.0",
         "maknz/slack": "~1.7",
-        "fire015/flintstone": "~1.9",
         "psr/log": "~1.0"
     },
     "suggest": {
-        "monolog/monolog": "Monolog sends your logs to files, sockets, inboxes, databases and various web services"
+        "monolog/monolog": "Monolog sends your logs to files, sockets, inboxes, databases and various web services",
+        "predis/predis": "Predis is a flexible and feature-complete Redis client library for PHP"
     },
     "autoload": {
         "psr-4": {"TJ\\": "src/"}
