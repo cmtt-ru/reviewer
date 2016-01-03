@@ -9,24 +9,23 @@ Simple library to track App Store reviews with [Slack](https://slack.com/).
 composer.phar require tjournal/reviewer
 ```
 
-After installing, you should make database directory `storage` writable:
-
-```bash
-chmod 777 storage
-```
-
-and require Composer's autoloader:
+Next require Composer's autoloader:
 
 ```php
 require 'vendor/autoload.php';
 ```
 
 ### Simple usage
+You should use external database to store already sent reviews. We advice Redis with [Predis](https://github.com/nrk/predis) library. Library should implement `IStorage` interface.
+
 You need to [create new Incoming webhook](https://slack.com/services/new/incoming-webhook) in Slack and change `{APPID}` with [the real app id](https://www.codeproof.com/blog/how-to-find-aitunes-store-id-or-appid/):
 
 ```php
 try {
+    $storage = new Predis\Client();
+
     $reviewer = new TJ\Reviewer({APPID});
+    $reviewer->setStorage($storage);
     $reviewer->setSlackSettings(['endpoint' => 'https://hooks.slack.com/services/ABCDE/QWERTY', 'channel' => '#reviews']);
     $reviewer->start();
 } catch (Exception $e) {
