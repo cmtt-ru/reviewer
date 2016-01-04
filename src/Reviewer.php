@@ -81,10 +81,10 @@ class Reviewer
     /**
      * Storage setter
      *
-     * @param  object        $storage implements IStorage
+     * @param  object        $storage
      * @return TJ\Reviewer
      */
-    public function setStorage(IStorage $storage)
+    public function setStorage($storage)
     {
         $this->storage = $storage;
 

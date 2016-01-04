@@ -16,7 +16,7 @@ require 'vendor/autoload.php';
 ```
 
 ### Simple usage
-You should use external database to store already sent reviews. We advice Redis with [Predis](https://github.com/nrk/predis) library. Library should implement `IStorage` interface.
+You should use external database to store already sent reviews. We advice Redis with [Predis](https://github.com/nrk/predis) library. Library should implement `sismember`, `sadd`, `exists` and `set` methods.
 
 You need to [create new Incoming webhook](https://slack.com/services/new/incoming-webhook) in Slack and change `{APPID}` with [the real app id](https://www.codeproof.com/blog/how-to-find-aitunes-store-id-or-appid/):
 
